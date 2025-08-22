@@ -3,7 +3,7 @@ app = Flask(__name__)
 
 @app.get("/")
 def root():
-    return "Hello from CI/CD build!\n", 200
+    return "Hello from CI/CD build! commited\n", 200
 
 @app.get("/healthz")
 def health():
