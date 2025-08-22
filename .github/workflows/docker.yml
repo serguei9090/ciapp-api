@@ -2,19 +2,19 @@ name: Build & Push images
 
 on:
   push:
-    branches: [ master, main ]   # <- works with your 'master' default branch
+    branches: [ master, main ]  
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAMESPACE: serguei9090     # <-- must be lowercase; your username
+  IMAGE_NAMESPACE: serguei9090
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write              # allow GITHUB_TOKEN to push to GHCR
+      packages: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,6 +31,11 @@ jobs:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3 # <--- Add this step
+        with:
+          driver: docker-container # <--- Specify the driver
 
       # Build & push API image from ./app
       - name: Build & push API
