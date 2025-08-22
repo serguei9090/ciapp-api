@@ -1,0 +1,29 @@
+services:
+  api:
+    image: ${REGISTRY}/${IMAGE_NAMESPACE}/ciapp-api:${TAG:-latest}
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://127.0.0.1:5000/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  web:
+    image: ${REGISTRY}/${IMAGE_NAMESPACE}/ciapp-web:${TAG:-latest}
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      api:
+        condition: service_started
+    ports: ["8080:80"]
+    healthcheck:
+      test: ["CMD-SHELL","wget -qO- http://127.0.0.1/healthz >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+networks: {}
+volumes: {}
