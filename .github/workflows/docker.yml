@@ -2,64 +2,53 @@ name: Build & Push images
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master, main ]   # <- works with your 'master' default branch
   workflow_dispatch:
 
 env:
-  REGISTRY: ${{ secrets.REGISTRY }}
-  IMAGE_NAMESPACE: ${{ secrets.IMAGE_NAMESPACE }}
-  IMAGE_NAME_API: ciapp-api
-  IMAGE_NAME_WEB: ciapp-web
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: serguei9090     # <-- must be lowercase; your username
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write   # needed for GHCR with GITHUB_TOKEN
+      packages: write              # allow GITHUB_TOKEN to push to GHCR
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set tags
+      - name: Derive tags
         id: vars
         run: |
-          SHA_TAG=${GITHUB_SHA::7}
-          echo "sha_tag=$SHA_TAG" >> $GITHUB_OUTPUT
-          echo "today=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
+          echo "sha_tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          echo "date_tag=$(date +%Y%m%d)" >> $GITHUB_OUTPUT
 
-      - name: Login to registry (GHCR)
-        if: env.REGISTRY == 'ghcr.io'
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.actor }}
-          # GITHUB_TOKEN works for GHCR when packages:write is granted
+          username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Uncomment for Docker Hub
-      # - name: Login to Docker Hub
-      #   if: env.REGISTRY == 'docker.io'
-      #   uses: docker/login-action@v3
-      #   with:
-      #     username: ${{ secrets.DOCKERHUB_USERNAME }}
-      #     password: ${{ secrets.DOCKERHUB_TOKEN }}
-
+      # Build & push API image from ./app
       - name: Build & push API
         uses: docker/build-push-action@v6
         with:
           context: ./app
           push: true
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME_API }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/${{ env.IMAGE_NAME_API }}:${{ steps.vars.outputs.today }}-${{ steps.vars.outputs.sha_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/ciapp-api:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/ciapp-api:${{ steps.vars.outputs.date_tag }}-${{ steps.vars.outputs.sha_tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Build & push WEB (re-tag nginx:alpine)
+      # Push web image (re-tag official nginx:alpine)
+      - name: Push WEB
         run: |
           docker pull nginx:alpine
-          docker tag nginx:alpine $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME_WEB:latest
-          docker tag nginx:alpine $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME_WEB:${{ steps.vars.outputs.today }}-${{ steps.vars.outputs.sha_tag }}
-          docker push $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME_WEB:latest
-          docker push $REGISTRY/$IMAGE_NAMESPACE/$IMAGE_NAME_WEB:${{ steps.vars.outputs.today }}-${{ steps.vars.outputs.sha_tag }}
+          docker tag nginx:alpine $REGISTRY/$IMAGE_NAMESPACE/ciapp-web:latest
+          docker tag nginx:alpine $REGISTRY/$IMAGE_NAMESPACE/ciapp-web:${{ steps.vars.outputs.date_tag }}-${{ steps.vars.outputs.sha_tag }}
+          docker push $REGISTRY/$IMAGE_NAMESPACE/ciapp-web:latest
+          docker push $REGISTRY/$IMAGE_NAMESPACE/ciapp-web:${{ steps.vars.outputs.date_tag }}-${{ steps.vars.outputs.sha_tag }}
